@@ -4,6 +4,8 @@ import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/add_transaction_screen.dart';
+import 'screens/analytics_home_screen.dart';
+import 'screens/transaction_history_screen.dart';
 import 'services/api_service.dart';
 import 'core/app_theme.dart';
 
@@ -319,7 +321,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildQuickAction(
                         Icons.pie_chart_outline,
                         'Analytics',
-                        () {},
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AnalyticsHomeScreen(),
+                            ),
+                          );
+                        },
                       ),
                       _buildQuickAction(
                         Icons.person_outline,
@@ -346,7 +354,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const Spacer(),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const TransactionHistoryScreen(),
+                            ),
+                          );
+                        },
                         child: const Text('See All'),
                       ),
                     ],
@@ -507,25 +521,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickAction(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.cardDark,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: AppColors.primaryGreen, size: 28),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        splashColor: AppColors.primaryGreen.withOpacity(0.3),
+        highlightColor: AppColors.primaryGreen.withOpacity(0.1),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cardDark,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primaryGreen.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryGreen.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: AppColors.primaryGreen, size: 28),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-          ),
-        ],
+        ),
       ),
     );
   }

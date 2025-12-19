@@ -12,9 +12,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
     List<Transaction> findByUserOrderByCreatedAtDesc(User user);
 
+    List<Transaction> findByUserAndCreatedAtBetweenOrderByCreatedAtDesc(
+            User user, LocalDateTime start, LocalDateTime end);
+
     @Query("SELECT COALESCE(SUM(t.carbonFootprint), 0) FROM Transaction t WHERE t.user = :user AND t.createdAt >= :startDate")
     Double sumCarbonFootprintByUserSince(@Param("user") User user, @Param("startDate") LocalDateTime startDate);
 
     @Query("SELECT COALESCE(SUM(t.carbonFootprint), 0) FROM Transaction t WHERE t.user = :user AND t.createdAt >= :startDate AND t.createdAt < :endDate")
-    Double sumCarbonFootprintByUserBetween(@Param("user") User user, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    Double sumCarbonFootprintByUserBetween(@Param("user") User user, @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.user = :user AND t.createdAt >= :startDate AND t.createdAt < :endDate")
+    Long countByUserBetween(@Param("user") User user, @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

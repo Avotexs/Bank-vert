@@ -18,5 +18,6 @@ public class TransactionResponse {
     private String category;
     private String categoryDisplayName;
     private Double carbonFootprint;
+    private String merchant;
     private LocalDateTime createdAt;
 }

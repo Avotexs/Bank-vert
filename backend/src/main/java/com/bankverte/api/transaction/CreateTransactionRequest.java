@@ -10,5 +10,8 @@ import lombok.NoArgsConstructor;
 public class CreateTransactionRequest {
     private String description;
     private Double amount;
+    private String currency; // Optional, defaults to EUR
     private TransactionCategory category;
+    private String merchant; // Optional
+    private PaymentType paymentType; // Optional
 }
