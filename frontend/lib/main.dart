@@ -317,7 +317,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         'Add\nTransaction',
                         _openAddTransaction,
                       ),
-                      _buildQuickAction(Icons.history, 'History', () {}),
+                      _buildQuickAction(Icons.history, 'History', () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const TransactionHistoryScreen(),
+                          ),
+                        );
+                      }),
                       _buildQuickAction(
                         Icons.pie_chart_outline,
                         'Analytics',

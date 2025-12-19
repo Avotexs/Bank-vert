@@ -11,14 +11,49 @@ class TransactionHistoryScreen extends StatefulWidget {
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _searchController = TextEditingController();
+  
   List<dynamic> _transactions = [];
+  List<dynamic> _filteredTransactions = [];
   bool _isLoading = true;
   String? _errorMessage;
+  
+  // Filter and sort options
+  String _sortOption = 'recent';
+  String _selectedCategory = 'all';
+  
+  final List<Map<String, String>> _sortOptions = [
+    {'value': 'recent', 'label': 'Most Recent'},
+    {'value': 'oldest', 'label': 'Oldest'},
+    {'value': 'co2_high', 'label': 'Highest CO₂'},
+    {'value': 'co2_low', 'label': 'Lowest CO₂'},
+    {'value': 'price_high', 'label': 'Highest Price'},
+    {'value': 'price_low', 'label': 'Lowest Price'},
+  ];
+  
+  final List<Map<String, String>> _categoryOptions = [
+    {'value': 'all', 'label': 'All'},
+    {'value': 'TRANSPORT', 'label': 'Transport'},
+    {'value': 'FOOD', 'label': 'Food'},
+    {'value': 'ENERGY', 'label': 'Energy'},
+    {'value': 'SHOPPING', 'label': 'Shopping'},
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadTransactions();
+    _searchController.addListener(_onSearchChanged);
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged() {
+    _applyFilters();
   }
 
   Future<void> _loadTransactions() async {
@@ -33,12 +68,66 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         _transactions = transactions;
         _isLoading = false;
       });
+      _applyFilters();
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load transactions: $e';
         _isLoading = false;
       });
     }
+  }
+  
+  void _applyFilters() {
+    List<dynamic> result = List.from(_transactions);
+    
+    // Apply search filter
+    final searchQuery = _searchController.text.toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      result = result.where((tx) {
+        final description = (tx['description'] as String? ?? '').toLowerCase();
+        final merchant = (tx['merchant'] as String? ?? '').toLowerCase();
+        return description.contains(searchQuery) || merchant.contains(searchQuery);
+      }).toList();
+    }
+    
+    // Apply category filter
+    if (_selectedCategory != 'all') {
+      result = result.where((tx) {
+        final category = tx['category'] as String? ?? '';
+        return category.startsWith(_selectedCategory);
+      }).toList();
+    }
+    
+    // Apply sorting
+    result.sort((a, b) {
+      switch (_sortOption) {
+        case 'co2_high':
+          return ((b['carbonFootprint'] as num?) ?? 0)
+              .compareTo((a['carbonFootprint'] as num?) ?? 0);
+        case 'co2_low':
+          return ((a['carbonFootprint'] as num?) ?? 0)
+              .compareTo((b['carbonFootprint'] as num?) ?? 0);
+        case 'price_high':
+          return ((b['amount'] as num?) ?? 0)
+              .compareTo((a['amount'] as num?) ?? 0);
+        case 'price_low':
+          return ((a['amount'] as num?) ?? 0)
+              .compareTo((b['amount'] as num?) ?? 0);
+        case 'oldest':
+          final dateA = DateTime.tryParse(a['createdAt'] ?? '') ?? DateTime.now();
+          final dateB = DateTime.tryParse(b['createdAt'] ?? '') ?? DateTime.now();
+          return dateA.compareTo(dateB);
+        case 'recent':
+        default:
+          final dateA = DateTime.tryParse(a['createdAt'] ?? '') ?? DateTime.now();
+          final dateB = DateTime.tryParse(b['createdAt'] ?? '') ?? DateTime.now();
+          return dateB.compareTo(dateA);
+      }
+    });
+    
+    setState(() {
+      _filteredTransactions = result;
+    });
   }
 
   @override
@@ -58,7 +147,166 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             colors: [AppColors.darkGreen, AppColors.backgroundDark],
           ),
         ),
-        child: _buildBody(),
+        child: Column(
+          children: [
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(color: AppColors.textLight),
+                decoration: InputDecoration(
+                  hintText: 'Search transactions...',
+                  hintStyle: TextStyle(color: AppColors.textMuted),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.primaryGreen),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.cardDark,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+                  ),
+                ),
+              ),
+            ),
+            
+            // Sort Options
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.sort, color: AppColors.primaryGreen, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Sort by',
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _sortOptions.map((option) {
+                        final isSelected = _sortOption == option['value'];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            label: Text(option['label']!),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _sortOption = option['value']!;
+                              });
+                              _applyFilters();
+                            },
+                            backgroundColor: AppColors.cardDark,
+                            selectedColor: AppColors.primaryGreen.withOpacity(0.3),
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppColors.primaryGreen : AppColors.textMuted,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            side: BorderSide(
+                              color: isSelected ? AppColors.primaryGreen : Colors.transparent,
+                            ),
+                            showCheckmark: false,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Category Filter
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_list, color: AppColors.primaryGreen, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Category',
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _categoryOptions.map((option) {
+                        final isSelected = _selectedCategory == option['value'];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            label: Text(option['label']!),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedCategory = option['value']!;
+                              });
+                              _applyFilters();
+                            },
+                            backgroundColor: AppColors.cardDark,
+                            selectedColor: AppColors.primaryGreen.withOpacity(0.3),
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppColors.primaryGreen : AppColors.textMuted,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            side: BorderSide(
+                              color: isSelected ? AppColors.primaryGreen : Colors.transparent,
+                            ),
+                            showCheckmark: false,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Results count
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_filteredTransactions.length} transaction${_filteredTransactions.length != 1 ? 's' : ''}',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Transaction List
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
     );
   }
@@ -107,19 +355,19 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       );
     }
 
-    if (_transactions.isEmpty) {
+    if (_filteredTransactions.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.receipt_long_outlined,
+              _transactions.isEmpty ? Icons.receipt_long_outlined : Icons.search_off,
               size: 64,
               color: AppColors.textMuted,
             ),
             const SizedBox(height: 16),
             Text(
-              'No transactions yet',
+              _transactions.isEmpty ? 'No transactions yet' : 'No matching transactions',
               style: TextStyle(
                 color: AppColors.textLight,
                 fontSize: 18,
@@ -128,7 +376,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first transaction to track CO₂',
+              _transactions.isEmpty 
+                  ? 'Add your first transaction to track CO₂'
+                  : 'Try adjusting your search or filters',
               style: TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 14,
@@ -143,10 +393,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       onRefresh: _loadTransactions,
       color: AppColors.primaryGreen,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _transactions.length,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _filteredTransactions.length,
         itemBuilder: (context, index) {
-          final tx = _transactions[index];
+          final tx = _filteredTransactions[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
